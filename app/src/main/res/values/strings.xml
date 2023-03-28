@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Electronic Signature</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="fab_description">Add a new Signature</string>
+    <string name="title">PDF Signer</string>
+    <string name="main_screen_instruction">Tap to add new PDF</string>
+    <string name="new_signature_instruction">Tap here to add a signature</string>
+    <string name="uploded_on">Uploded on:</string>
+    <string name="get_signature_description">Click to open the signature list</string>
+    <string name="sign_document_description">Click to sign document</string>
+    <string name="qr_placeholder">QR placeholder</string>
+    <string name="document_selected_toast_message">Document signed</string>
+    <string name="file_deleted_toast_message">%1$d files where deleted since last access</string>
+</resources>
