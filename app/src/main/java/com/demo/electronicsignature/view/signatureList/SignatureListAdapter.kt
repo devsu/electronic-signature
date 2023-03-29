@@ -21,7 +21,6 @@ class SignatureListAdapter(
 
 	private lateinit var addSignatureItemBinding: AddSignatureItemBinding
 	private lateinit var signatureListItemBinding: SignatureListItemBinding
-	var selectedFile: Uri = Uri.EMPTY
 
 	enum class ViewType {
 		NEW_SIGNATURE, SIGNATURE
@@ -43,7 +42,6 @@ class SignatureListAdapter(
 	}
 
 	fun addSignatures(newData: List<Signature>) {
-		if (newData.isEmpty()) return
 		signatures.clear()
 		signatures.addAll(newData)
 //		notifyItemRangeInserted(signatures.size, newData.size)
@@ -62,6 +60,12 @@ class SignatureListAdapter(
 	}
 
 	override fun getItemCount(): Int = signatures.size
+	fun deleteSignature(it: Int?) {
+		if (it != null) {
+			signatures.removeAt(it)
+			notifyItemRemoved(it)
+		}
+	}
 
 
 	inner class SignatureViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -75,7 +79,14 @@ class SignatureListAdapter(
 				signatureListItemBinding.date.text = signature.uploadedDate.parseDate()
 				signatureListItemBinding.name.text = signature.fileName
 				configureSignatureFileClickListener(signature)
+				configureDeleteClickListener(signature)
 				return
+			}
+		}
+
+		private fun configureDeleteClickListener(signature: SignatureData) {
+			signatureListItemBinding.deleteItem.setOnClickListener {
+				listener.onDeleteItem(signature)
 			}
 		}
 
@@ -87,13 +98,15 @@ class SignatureListAdapter(
 
 		private fun configureNewItemClickListeners() {
 			addSignatureItemBinding.textView.setOnClickListener {
-				getContent.launch("*/*")
+				//launch file picker only get pfx or p12 files
+				getContent.launch("application/x-pkcs12")
 			}
 		}
 	}
 
 	interface OnItemClickListener {
 		fun onItemClick(uri: Uri)
+		fun onDeleteItem(signature: SignatureData)
 	}
 
 }

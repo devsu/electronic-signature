@@ -1,13 +1,16 @@
 package com.demo.electronicsignature.view.mainScreen
 
+import android.app.AlertDialog
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.MotionEvent
-import android.view.View
-import android.view.ViewGroup
+import android.text.InputType
+import android.util.Log
+import android.view.*
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.demo.electronicsignature.R
@@ -15,7 +18,10 @@ import com.demo.electronicsignature.databinding.FragmentMainScreenBinding
 import com.demo.electronicsignature.domain.MainScreenViewModel
 import com.demo.electronicsignature.view.bottomSheet.BottomSheet
 import com.squareup.picasso.Picasso
+import java.io.File
 
+
+private const val AUTHORITY = "com.demo.electronicsignature.view.mainScreen.fileprovider"
 
 class MainScreenFragment : Fragment() {
 
@@ -28,7 +34,7 @@ class MainScreenFragment : Fragment() {
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
 		savedInstanceState: Bundle?
-	): View? {
+	): View {
 		_binding = FragmentMainScreenBinding.inflate(inflater, container, false)
 		return binding.root
 	}
@@ -38,7 +44,6 @@ class MainScreenFragment : Fragment() {
 		configurePdfLoadButton()
 		configureFAB()
 		subscribeToViewModel()
-
 	}
 
 	private fun configureFAB() {
@@ -46,9 +51,19 @@ class MainScreenFragment : Fragment() {
 			val bottomSheet = BottomSheet(viewModel)
 			bottomSheet.show(childFragmentManager, bottomSheet.tag)
 		}
-		binding.signDocument.setOnClickListener{
-			viewModel.signDocument(currentPage)
-			Toast.makeText(context, getString(R.string.document_selected_toast_message), Toast.LENGTH_SHORT).show()
+		binding.signDocument.setOnClickListener {
+			val editText = EditText(context)
+			editText.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+			AlertDialog.Builder(context)
+				.setTitle(getString(R.string.enter_password_title))
+				.setView(editText)
+				.setPositiveButton(getString(R.string.positive_message)) { _, _ ->
+					val password = editText.text.toString()
+					viewModel.signDocument(password, currentPage)
+				}
+				.setNegativeButton(getString(R.string.cancel_button)) { _, _ -> }
+				.show()
+
 		}
 	}
 
@@ -61,6 +76,50 @@ class MainScreenFragment : Fragment() {
 			binding.signDocument.visibility = View.VISIBLE
 			binding.signaturePlaceholder.visibility = View.VISIBLE
 			Picasso.get().load(R.drawable.testqr).into(binding.signaturePlaceholder)
+		}
+		viewModel.appStatus.observe(viewLifecycleOwner) {
+			when (it) {
+				MainScreenViewModel.AppStatus.PROCESSING_SIGNATURE -> {
+					binding.progressBar.visibility = View.VISIBLE
+				}
+				MainScreenViewModel.AppStatus.SIGNATURE_SELECTED -> {
+					binding.signaturePlaceholder.visibility = View.VISIBLE
+				}
+				MainScreenViewModel.AppStatus.ERROR -> {
+					binding.progressBar.visibility = View.GONE
+					AlertDialog.Builder(context)
+						.setTitle(getString(R.string.error_title))
+						.setMessage(viewModel.errorMessage.value)
+						.setPositiveButton(getString(R.string.positive_message)) { _, _ -> }
+						.show()
+				}
+				else -> {
+					binding.progressBar.visibility = View.GONE
+				}
+			}
+		}
+
+
+		viewModel.imagePosition.observe(viewLifecycleOwner) {
+			binding.signaturePlaceholder.x = it.first
+			binding.signaturePlaceholder.y = it.second
+		}
+		viewModel.shareDocument.observe(viewLifecycleOwner) {
+			val fileUri = FileProvider.getUriForFile(
+				requireContext(),
+				AUTHORITY,
+				File(it)
+			)
+			if (fileUri == null) {
+				Log.i("MainScreenFragment", "shareDocument: fileUri is null")
+				Toast.makeText(context, "Error sharing document", Toast.LENGTH_SHORT).show()
+			}
+			val intent = Intent(Intent.ACTION_SEND)
+			intent.type = "application/pdf"
+			intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+			intent.putExtra(Intent.EXTRA_STREAM, fileUri)
+			intent.setDataAndType(fileUri, requireContext().contentResolver.getType(fileUri))
+			startActivity(Intent.createChooser(intent, "Share PDF"))
 		}
 	}
 
@@ -82,17 +141,22 @@ class MainScreenFragment : Fragment() {
 		binding.pdfView
 			.fromUri(uri)
 			.swipeHorizontal(true)
+			.onDraw { _, pageWidth, pageHeight, _ ->
+				viewModel.setPageDimensions(pageWidth, pageHeight)
+			}
+			.enableDoubletap(false)
 			.onTap { event: MotionEvent ->
 				if (viewModel.appStatus.value != MainScreenViewModel.AppStatus.SIGNATURE_SELECTED) {
 					return@onTap false
 				}
 				viewModel.registerImagePosition(event.x, event.y)
-				binding.signaturePlaceholder.x = event.x
-				binding.signaturePlaceholder.y = event.y
 				true
 			}
-			.onPageChange { page, _ ->
+			.onPageChange { page, pageCount ->
 				currentPage = page
+				val toast = Toast.makeText(context, "Page ${page+1} of $pageCount", Toast.LENGTH_LONG)
+				toast.setGravity(Gravity.TOP, 0, resources.getDimensionPixelSize(R.dimen.toolbar_height))
+				toast.show()
 			}
 			.load()
 	}
