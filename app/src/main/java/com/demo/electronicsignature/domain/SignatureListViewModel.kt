@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.demo.electronicsignature.App
 import com.demo.electronicsignature.R
+import com.demo.electronicsignature.converters.toSignatureFile
 import com.demo.electronicsignature.data.repository.SignatureFileRepository
 import com.demo.electronicsignature.domain.model.NewSignature
 import com.demo.electronicsignature.domain.model.Signature
@@ -26,8 +27,12 @@ class SignatureListViewModel(
 
 	private val firstElement = NewSignature(R.string.new_signature_instruction)
 
-	private val _filesDeleted: MutableLiveData<Int> = MutableLiveData()
-	val filesDeleted: LiveData<Int> = _filesDeleted
+	private val _filesDeletedCount: MutableLiveData<Int> = MutableLiveData()
+	val filesDeletedCount: LiveData<Int> = _filesDeletedCount
+
+	private val _fileDeletedId: MutableLiveData<Int> = MutableLiveData()
+	val fileDeletedId: LiveData<Int> = _fileDeletedId
+
 
 
 	fun loadDatabase() {
@@ -44,24 +49,35 @@ class SignatureListViewModel(
 					deletedFiles.plus(1)
 					return@map null
 				}
-				SignatureData(file.name, it.registrationDate, file.toUri())
+				SignatureData(it.id, file.name, it.registrationDate, file.toUri())
 			}
 			_filesList.postValue(signData.filterNotNull().toMutableList().apply { add(0, firstElement) })
-			_filesDeleted.postValue(deletedFiles)
+			_filesDeletedCount.postValue(deletedFiles)
 		}
 	}
 
 	fun addFile(uri: Uri) {
 		Log.i("SignatureListViewModel", "uri: $uri")
 		val path = uri.path.toString().split(":").last()
-		Log.i("SignatureListViewModel", "path: $path")
 		val file = File(path)
 		if(!file.exists()) return
+		Log.i("SignatureListViewModel", "file: ${file.absolutePath}")
 		viewModelScope.launch {
-			signatureFileRepository.saveFile(file.absolutePath)
+			val registerSignatureFile: Long = signatureFileRepository.saveFile(file.absolutePath)
+			Log.i("SignatureListViewModel", "registerSignatureFile: $registerSignatureFile")
+			val list = _filesList.value?.toMutableList() ?: mutableListOf()
+			list.add(SignatureData(registerSignatureFile.toInt(),file.name, Date(), file.absolutePath.toUri()))
+			_filesList.postValue(list)
+		}
+	}
+
+	fun deleteFile(signature: SignatureData) {
+		val position = _filesList.value?.indexOf(signature) ?: return
+		viewModelScope.launch {
+			signatureFileRepository.deleteFile(signature.toSignatureFile())
 		}
 		val list = _filesList.value?.toMutableList() ?: mutableListOf()
-		list.add(SignatureData(file.name, Date(), file.absolutePath.toUri()))
-		_filesList.value = list
+		list.removeIf { it is SignatureData && it.id == signature.id }
+		_fileDeletedId.value = position
 	}
 }
