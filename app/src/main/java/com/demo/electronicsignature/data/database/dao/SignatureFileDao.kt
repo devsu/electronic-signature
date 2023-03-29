@@ -13,9 +13,9 @@ interface SignatureFileDao {
 	suspend fun getById(id: Int): SignatureFile
 
 	@Insert(onConflict = OnConflictStrategy.ABORT)
-	suspend fun insert(signatureFile: SignatureFile)
+	suspend fun insert(signatureFile: SignatureFile): Long
 
-	@Delete
-	suspend fun delete(signatureFile: SignatureFile)
+	@Query("DELETE FROM signature_file WHERE id = :id")
+	suspend fun delete(id: Int)
 
 }
