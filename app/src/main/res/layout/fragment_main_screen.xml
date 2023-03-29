@@ -10,9 +10,10 @@
     android:clickable="true"
     tools:context=".view.mainScreen.MainScreenFragment">
 
-    <androidx.appcompat.widget.Toolbar
+    <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
+        app:menu="@menu/menu"
         android:layout_height="@dimen/toolbar_height"
         android:background="?attr/colorPrimary"
         android:minHeight="?attr/actionBarSize"

@@ -18,4 +18,5 @@
     <string name="error_title">Error</string>
     <string name="positive_message">OK</string>
     <string name="enter_password_title">Enter Your password</string>
+    <string name="go_to_page">Go to page</string>
 </resources>

@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.*
 import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
@@ -29,7 +30,8 @@ class MainScreenFragment : Fragment() {
 	private val binding get() = _binding
 	private val viewModel: MainScreenViewModel by viewModels()
 	private var currentPage: Int = 0
-
+	private val toasts = mutableListOf<Toast>()
+	private lateinit var loadContent: ActivityResultLauncher<String>
 
 	override fun onCreateView(
 		inflater: LayoutInflater, container: ViewGroup?,
@@ -44,6 +46,54 @@ class MainScreenFragment : Fragment() {
 		configurePdfLoadButton()
 		configureFAB()
 		subscribeToViewModel()
+		configureMenu()
+	}
+
+	private fun configureMenu() {
+		binding.toolbar.setOnMenuItemClickListener { menuItem ->
+			when (menuItem.itemId) {
+				R.id.searchPage -> {
+					configureSearchPage()
+				}
+//				R.id.reloadDocument -> {
+//					configureReloadDocument()
+//					true
+//
+//				}
+
+				else -> false
+			}
+		}
+	}
+
+	private fun configureReloadDocument(): Boolean {
+
+		binding.mainInstruction.setOnClickListener {
+			loadContent.launch("application/pdf")
+		}
+		return true
+	}
+
+	private fun configureSearchPage(): Boolean {
+		val editText = EditText(context)
+		editText.inputType = InputType.TYPE_CLASS_NUMBER
+		AlertDialog.Builder(context)
+			.setTitle("Select page to go to")
+			.setView(editText)
+			.setPositiveButton(getString(R.string.positive_message)) { dialog, _ ->
+				val page = editText.text.toString()
+				val pageNumber = Integer.parseInt(page)
+				if (pageNumber < 1) {
+					Toast.makeText(context, "Page number must be greater than 0", Toast.LENGTH_SHORT).show()
+					dialog.dismiss()
+				}
+				binding.pdfView.jumpTo(Integer.parseInt(page) - 1, true)
+			}
+			.setNegativeButton(getString(R.string.cancel_button)) { dialog, _ ->
+				dialog.cancel()
+			}
+			.show()
+		return true
 	}
 
 	private fun configureFAB() {
@@ -90,7 +140,9 @@ class MainScreenFragment : Fragment() {
 					AlertDialog.Builder(context)
 						.setTitle(getString(R.string.error_title))
 						.setMessage(viewModel.errorMessage.value)
-						.setPositiveButton(getString(R.string.positive_message)) { _, _ -> }
+						.setPositiveButton(getString(R.string.positive_message)) { dialog, _ ->
+							dialog.dismiss()
+						}
 						.show()
 				}
 				else -> {
@@ -131,7 +183,6 @@ class MainScreenFragment : Fragment() {
 			viewModel.registerPdf(uri)
 			binding.getSign.visibility = View.VISIBLE
 		}
-
 		binding.mainInstruction.setOnClickListener {
 			getContent.launch("application/pdf")
 		}
@@ -153,8 +204,13 @@ class MainScreenFragment : Fragment() {
 				true
 			}
 			.onPageChange { page, pageCount ->
+				toasts.forEach {
+					it.cancel()
+				}
+				toasts.clear()
 				currentPage = page
-				val toast = Toast.makeText(context, "Page ${page+1} of $pageCount", Toast.LENGTH_LONG)
+				val toast = Toast.makeText(context, "Page ${page + 1} of $pageCount", Toast.LENGTH_LONG)
+				toasts.add(toast)
 				toast.setGravity(Gravity.TOP, 0, resources.getDimensionPixelSize(R.dimen.toolbar_height))
 				toast.show()
 			}
